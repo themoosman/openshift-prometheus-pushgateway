@@ -172,7 +172,7 @@ parameters:
   required: true
 - name: GIT_URI
   description: The Git URI.
-  value: "https://git.moos.local/kmoos/prom-pushgateway.git"
+  value: "https://github.com/themoosman/openshift-prometheus-pushgateway.git"
   required: true
 - name: GIT_REF
   description: The git reference (tag, branch or other reference) to build from.
