@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: Template
+labels:
+  app: ${NAME}
+  template: ${NAME}
+metadata:
+  annotations:
+    description: Prometheus Pushgateway
+    openshift.io/display-name: Prometheus Pushgateway
+    tags: prometheus
+    template.openshift.io/bindable: "false"
+  name: ${NAME}
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: rhel7-rhel-minimal
+    namespace: ${NAMESPACE}
+    labels:
+      app: ${NAME}
+  spec:
+    tags:
+      - name: latest
+        annotations:
+          openshift.io/imported-from: registry.access.redhat.com/rhel7-rhel-minimal
+        from:
+          kind: DockerImage
+          name: registry.access.redhat.com/rhel7-rhel-minimal
+        referencePolicy:
+          type: Source
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+    labels:
+      app: ${NAME}
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      description: Builds image for ${NAME}
+    labels:
+      build: ${NAME}
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: '${NAME}:latest'
+    runPolicy: Serial
+    source:
+      type: Git
+      git:
+        uri: ${GIT_URI}
+        ref: ${GIT_REF}
+    strategy:
+      type: Docker
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: 'rhel7-rhel-minimal:latest'
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      prometheus.io/probe: pushgateway
+      prometheus.io/scrape: 'true'
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    ports:
+    - name: web
+      port: 8080
+      targetPort: 9091
+    selector:
+      name: ${NAME}
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      haproxy.router.openshift.io/timeout: 5s
+    labels:
+      application: ${NAME}
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    host: ${ROUTE_URL}
+    tls:
+      insecureEdgeTerminationPolicy: Allow
+      termination: edge
+    to:
+      name: ${NAME}
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: "true"
+    name: ${NAME}
+    namespace: ${NAMESPACE}
+  spec:
+    replicas: 1
+    selector:
+      name: ${NAME}
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          name: ${NAME}
+        name: ${NAME}
+      spec:
+        containers:
+        - image: ""
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9091
+            initialDelaySeconds: 30
+            timeoutSeconds: 3
+          name: ${NAME}
+          ports:
+          - containerPort: 9091
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9091
+            initialDelaySeconds: 3
+            timeoutSeconds: 3
+          resources:
+            limits:
+              cpu: ${CPU_LIMIT}
+              memory: ${MEMORY_LIMIT}
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+parameters:
+- description: The name give to all the API objects.
+  name: NAME
+  required: true
+  value: prometheus-pushgateway
+- description: The OpenShift Namespace where all the objects will be created..
+  name: NAMESPACE
+  required: true
+  value: openshift-metrics
+- description: Maximum memory the pushgateway container can use.
+  name: MEMORY_LIMIT
+  required: true
+  value: 1Gi
+- description: Maximum cpu the pushgateway container can use.
+  name: CPU_LIMIT
+  required: true
+  value: 500m
+- description: Reserved memory for pushgateway pod
+  name: MEMORY_REQUEST
+  required: true
+  value: 50Mi
+- description: Reserved CPU for pushgateway pod
+  name: CPU_REQUEST
+  required: true
+  value: 50m
+- description: pushgateway endpoint to expose
+  name: ROUTE_URL
+  required: true
+- name: GIT_URI
+  description: The Git URI.
+  value: "https://git.moos.local/kmoos/prom-pushgateway.git"
+  required: true
+- name: GIT_REF
+  description: The git reference (tag, branch or other reference) to build from.
+  value: master
+  required: true
