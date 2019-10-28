@@ -1,11 +1,10 @@
-FROM rhel7-rhel-minimal:latest
+FROM ubi:latest
 
-ENV PG_VERSION 0.5.2
+ENV PG_VERSION 1.0.0
 
 USER root
 
-RUN microdnf install tar gzip --enablerepo=rhel-7-server-rpms && \
-  microdnf update; microdnf clean all && \
+RUN yum -y update; yum clean all && \
   curl -L -o /tmp/pg.tar.gz https://github.com/prometheus/pushgateway/releases/download/v$PG_VERSION/pushgateway-$PG_VERSION.linux-amd64.tar.gz && \
   tar -xvf /tmp/pg.tar.gz --directory /tmp && \
   mkdir -p  /opt/app-root/src/ && \

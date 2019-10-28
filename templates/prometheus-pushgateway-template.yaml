@@ -11,23 +11,25 @@ metadata:
     template.openshift.io/bindable: "false"
   name: ${NAME}
 objects:
-- apiVersion: v1
+- apiVersion: image.openshift.io/v1
   kind: ImageStream
   metadata:
-    name: rhel7-rhel-minimal
-    namespace: ${NAMESPACE}
-    labels:
-      app: ${NAME}
+    name: ubi
+    namespace: openshift
+    annotations:
+      openshift.io/imported-from: registry.redhat.io/ubi8/ubi:latest
   spec:
+    lookupPolicy:
+      local: false
     tags:
-      - name: latest
-        annotations:
-          openshift.io/imported-from: registry.access.redhat.com/rhel7-rhel-minimal
-        from:
-          kind: DockerImage
-          name: registry.access.redhat.com/rhel7-rhel-minimal
-        referencePolicy:
-          type: Source
+    - annotations: null
+      from:
+        kind: DockerImage
+        name: registry.redhat.io/ubi8/ubi:latest
+      importPolicy: {}
+      name: latest
+      referencePolicy:
+        type: Local
 - apiVersion: v1
   kind: ImageStream
   metadata:
@@ -55,12 +57,13 @@ objects:
       git:
         uri: ${GIT_URI}
         ref: ${GIT_REF}
+    type: Git
     strategy:
       type: Docker
       dockerStrategy:
         from:
-          kind: ImageStreamTag
-          name: 'rhel7-rhel-minimal:latest'
+          kind: DockerImage
+          name: 'docker-registry.default.svc:5000/openshift/ubi:latest'
 - apiVersion: v1
   kind: Service
   metadata:
